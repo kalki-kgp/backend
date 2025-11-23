@@ -44,8 +44,15 @@ async function start() {
         description: 'DEX Order Execution Engine with Raydium & Meteora routing',
         endpoints: {
           health: '/api/health',
-          orders: '/api/orders',
-          execute: '/api/orders/execute (WebSocket)',
+          createOrder: 'POST /api/orders/execute',
+          orderStatus: 'GET /api/orders/:orderId',
+          allOrders: 'GET /api/orders',
+          websocket: 'GET /api/orders/execute?orderId=<orderId>',
+          queueMetrics: 'GET /api/orders/queue/metrics',
+        },
+        flow: {
+          step1: 'POST /api/orders/execute - Create order and get orderId',
+          step2: 'GET /api/orders/execute?orderId=<orderId> - Connect WebSocket for live updates',
         },
       };
     });
@@ -82,7 +89,15 @@ async function start() {
       });
     });
   } catch (error) {
-    logger.error({ error }, 'Failed to start server');
+    logger.error(
+      {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: error?.constructor?.name,
+      },
+      'Failed to start server'
+    );
+    console.error('Startup error:', error);
     process.exit(1);
   }
 }

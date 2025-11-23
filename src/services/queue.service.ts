@@ -22,6 +22,26 @@ export class OrderQueueService {
       port: config.redis.port,
       password: config.redis.password,
       maxRetriesPerRequest: null,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      reconnectOnError: (err) => {
+        const targetError = 'READONLY';
+        if (err.message.includes(targetError)) {
+          return true;
+        }
+        return false;
+      },
+    });
+
+    // Add error handlers
+    this.connection.on('error', (error) => {
+      logger.error({ error: error.message, stack: error.stack }, 'Redis connection error');
+    });
+
+    this.connection.on('connect', () => {
+      logger.info('Redis connection established');
     });
 
     // Initialize queue

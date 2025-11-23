@@ -42,21 +42,13 @@
       }
     },
     {
-      "name": "Create Market Order (WebSocket)",
+      "name": "Create Market Order",
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
             "value": "application/json"
-          },
-          {
-            "key": "Upgrade",
-            "value": "websocket"
-          },
-          {
-            "key": "Connection",
-            "value": "Upgrade"
           }
         ],
         "body": {
@@ -68,7 +60,52 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "orders", "execute"]
         },
-        "description": "Creates a market order and upgrades to WebSocket for real-time status updates"
+        "description": "Step 1: Creates a market order. API validates order and returns orderId. Use the returned orderId to connect to WebSocket endpoint for real-time status updates."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set('orderId', response.orderId);",
+              "    console.log('Order created:', response.orderId);",
+              "    console.log('Connect to WebSocket:', response.websocketUrl);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connect WebSocket for Order Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Upgrade",
+            "value": "websocket"
+          },
+          {
+            "key": "Connection",
+            "value": "Upgrade"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/execute?orderId={{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "execute"],
+          "query": [
+            {
+              "key": "orderId",
+              "value": "{{orderId}}",
+              "description": "Order ID from POST /api/orders/execute response"
+            }
+          ]
+        },
+        "description": "Step 2: Connect to WebSocket endpoint with orderId to receive real-time status updates (pending → routing → building → submitted → confirmed)"
       }
     },
     {

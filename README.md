@@ -64,7 +64,11 @@ I chose to implement **Market Orders** for the following reasons:
 
 ### Key Design Patterns
 
-1. **HTTP → WebSocket Upgrade**: Single endpoint handles both protocols for seamless status streaming
+1. **HTTP → WebSocket Pattern**: 
+   - User submits order via `POST /api/orders/execute`
+   - API validates order and returns `orderId`
+   - Same HTTP connection upgrades to WebSocket at `GET /api/orders/execute?orderId=<orderId>` for live status updates
+   - **Note**: Due to Fastify WebSocket plugin requiring GET method, WebSocket connection uses separate GET endpoint with orderId query parameter
 2. **Queue-based Processing**: BullMQ ensures reliable order processing with rate limiting and concurrency control
 3. **DEX Abstraction**: Mock implementations allow easy swapping with real DEX SDKs
 4. **Event Sourcing**: All status changes are logged for audit trails
@@ -233,10 +237,11 @@ http://localhost:3000
 
 ### Endpoints
 
-#### 1. Execute Order (WebSocket)
+#### 1. Execute Order
+
+**Step 1: Submit Order via POST**
 ```http
 POST /api/orders/execute
-Upgrade: websocket
 Content-Type: application/json
 
 {
@@ -248,16 +253,33 @@ Content-Type: application/json
 }
 ```
 
-**Response Flow:**
+**Response:**
 ```json
-// Initial HTTP response
-{"orderId": "uuid", "status": "pending"}
+{
+  "orderId": "uuid",
+  "status": "pending",
+  "message": "Order created successfully",
+  "websocketUrl": "/api/orders/execute?orderId=uuid",
+  "note": "Connect to WebSocket endpoint for real-time status updates"
+}
+```
 
-// WebSocket updates
+**Step 2: Connect to WebSocket for Live Updates**
+```http
+GET /api/orders/execute?orderId=<orderId>
+Upgrade: websocket
+```
+
+**WebSocket Status Updates:**
+```json
+// Initial connection confirmation
+{"orderId": "uuid", "status": "pending", "message": "Connected to order status stream", "currentStatus": {...}}
+
+// Status updates streamed in real-time
 {"orderId": "uuid", "status": "routing", "data": {"quotes": [...]}}
 {"orderId": "uuid", "status": "building", "data": {"selectedDex": "raydium"}}
 {"orderId": "uuid", "status": "submitted"}
-{"orderId": "uuid", "status": "confirmed", "data": {"txHash": "abc123..."}}
+{"orderId": "uuid", "status": "confirmed", "data": {"txHash": "abc123...", "executedPrice": 98.5}}
 ```
 
 #### 2. Get Order by ID

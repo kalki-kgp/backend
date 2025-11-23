@@ -20,83 +20,133 @@ const createOrderSchema = z.object({
 export async function orderRoutes(fastify: FastifyInstance) {
   /**
    * POST /api/orders/execute
-   * Creates and executes an order with WebSocket upgrade
+   * Primary endpoint: Creates and executes an order
+   * API validates order and returns orderId
+   * Connect to WebSocket at GET /api/orders/execute?orderId=<orderId> for live status updates
    */
-  fastify.post(
+  fastify.post('/execute', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = request.body as CreateOrderRequest;
+      const validationResult = createOrderSchema.safeParse(body);
+
+      if (!validationResult.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: validationResult.error.errors,
+        });
+      }
+
+      const orderData = validationResult.data;
+
+      // Additional business validation
+      const validation = orderExecutionService.validateOrder(orderData);
+      if (!validation.valid) {
+        return reply.status(400).send({
+          error: 'Order validation failed',
+          details: validation.errors,
+        });
+      }
+
+      // Create order
+      const order: Order = {
+        orderId: uuidv4(),
+        type: orderData.type,
+        tokenIn: orderData.tokenIn,
+        tokenOut: orderData.tokenOut,
+        amountIn: orderData.amountIn,
+        slippage: orderData.slippage,
+        status: OrderStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        retryCount: 0,
+      };
+
+      // Save to database
+      await orderModel.create(order);
+
+      // Add to queue for processing
+      await orderQueueService.addOrder(order);
+
+      logger.info({ orderId: order.orderId }, 'Order created and queued');
+
+      return reply.status(201).send({
+        orderId: order.orderId,
+        status: OrderStatus.PENDING,
+        message: 'Order created successfully',
+        websocketUrl: `/api/orders/execute?orderId=${order.orderId}`,
+        note: 'Connect to WebSocket endpoint for real-time status updates',
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to create order');
+      return reply.status(500).send({
+        error: 'Failed to create order',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  /**
+   * GET /api/orders/execute?orderId=<orderId>
+   * WebSocket endpoint for real-time order status updates
+   * Connect after creating order via POST /api/orders/execute
+   */
+  fastify.get(
     '/execute',
     {
       websocket: true,
     },
     async (socket, req: FastifyRequest) => {
-      try {
-        // Parse and validate request body
-        const body = req.body as CreateOrderRequest;
-        const validationResult = createOrderSchema.safeParse(body);
+      const { orderId } = (req.query as { orderId?: string }) || {};
 
-        if (!validationResult.success) {
-          socket.send(
-            JSON.stringify({
-              error: 'Validation failed',
-              details: validationResult.error.errors,
-            })
-          );
-          socket.close();
-          return;
-        }
-
-        const orderData = validationResult.data;
-
-        // Additional business validation
-        const validation = orderExecutionService.validateOrder(orderData);
-        if (!validation.valid) {
-          socket.send(
-            JSON.stringify({
-              error: 'Order validation failed',
-              details: validation.errors,
-            })
-          );
-          socket.close();
-          return;
-        }
-
-        // Create order
-        const order: Order = {
-          orderId: uuidv4(),
-          type: orderData.type,
-          tokenIn: orderData.tokenIn,
-          tokenOut: orderData.tokenOut,
-          amountIn: orderData.amountIn,
-          slippage: orderData.slippage,
-          status: OrderStatus.PENDING,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          retryCount: 0,
-        };
-
-        // Save to database
-        await orderModel.create(order);
-
-        // Register WebSocket connection
-        wsManager.register(order.orderId, socket);
-
-        // Send initial response with orderId
+      if (!orderId) {
         socket.send(
           JSON.stringify({
-            orderId: order.orderId,
-            message: 'Order created successfully',
-            status: OrderStatus.PENDING,
+            error: 'Missing orderId query parameter',
+            message: 'Connect with: GET /api/orders/execute?orderId=<your-order-id>',
+          })
+        );
+        socket.close();
+        return;
+      }
+
+      // Verify order exists
+      try {
+        const order = await orderModel.getById(orderId);
+        if (!order) {
+          socket.send(
+            JSON.stringify({
+              error: 'Order not found',
+              orderId,
+            })
+          );
+          socket.close();
+          return;
+        }
+
+        // Register WebSocket connection for this order
+        wsManager.register(orderId, socket);
+
+        // Send current order status
+        socket.send(
+          JSON.stringify({
+            orderId,
+            status: order.status,
+            message: 'Connected to order status stream',
+            currentStatus: {
+              status: order.status,
+              selectedDex: order.selectedDex,
+              executedPrice: order.executedPrice,
+              txHash: order.txHash,
+            },
           })
         );
 
-        // Add to queue for processing
-        await orderQueueService.addOrder(order);
-
-        logger.info({ orderId: order.orderId }, 'Order created and queued');
+        logger.info({ orderId }, 'WebSocket connection established for order');
       } catch (error) {
-        logger.error({ error }, 'Failed to create order');
+        logger.error({ error, orderId }, 'Failed to establish WebSocket connection');
         socket.send(
           JSON.stringify({
-            error: 'Failed to create order',
+            error: 'Failed to connect',
             message: error instanceof Error ? error.message : 'Unknown error',
           })
         );
