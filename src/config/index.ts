@@ -70,11 +70,17 @@ const getRequiredEnvVar = (key: string, defaultValue?: string): string => {
           const val = k.includes('PASSWORD') ? '***' : process.env[k];
           console.error(`  ${k}=${val}`);
         });
+        const serviceType = key.includes('POSTGRES') ? 'PostgreSQL' : key.includes('REDIS') ? 'Redis' : 'service';
         throw new Error(
           `❌ ${key} must be set in Render environment. ` +
           `Current value: ${value || 'undefined'} (localhost). ` +
-          `Go to Render Dashboard → Web Service → Environment tab → Add ${key} ` +
-          `with value from PostgreSQL/Redis service Info tab.`
+          `\n\n📋 TO FIX:\n` +
+          `1. Go to Render Dashboard → ${serviceType} service → Info tab\n` +
+          `2. Copy the Internal ${serviceType} URL or Hostname\n` +
+          `3. Go to Web Service → Environment tab → Add ${key}\n` +
+          `4. Set value to the ${serviceType} hostname (NOT localhost)\n` +
+          `5. Redeploy the service\n\n` +
+          `Example: ${key}=${serviceType === 'PostgreSQL' ? 'dpg-xxxxx-a.oregon-postgres.render.com' : 'red-xxxxx'}`
         );
       }
     }
