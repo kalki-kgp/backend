@@ -6,6 +6,12 @@ dotenv.config();
 const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = process.env[key] || defaultValue;
   if (!value) {
+    // Log available env vars for debugging (without sensitive data)
+    const envKeys = Object.keys(process.env).filter(k => 
+      k.includes('POSTGRES') || k.includes('REDIS') || k.includes('NODE')
+    );
+    console.error(`Missing environment variable: ${key}`);
+    console.error(`Available related env vars: ${envKeys.join(', ')}`);
     throw new Error(`Missing environment variable: ${key}`);
   }
   return value;

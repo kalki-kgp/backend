@@ -16,7 +16,7 @@ export class OrderQueueService {
   private connection: IORedis;
 
   constructor() {
-    // Create Redis connection
+    // Create Redis connection with retry logic
     this.connection = new IORedis({
       host: config.redis.host,
       port: config.redis.port,
@@ -24,6 +24,7 @@ export class OrderQueueService {
       maxRetriesPerRequest: null,
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
+        logger.info({ times, delay, host: config.redis.host, port: config.redis.port }, 'Retrying Redis connection...');
         return delay;
       },
       reconnectOnError: (err) => {
@@ -33,15 +34,22 @@ export class OrderQueueService {
         }
         return false;
       },
+      connectTimeout: 10000,
+      lazyConnect: false, // Connect immediately, but with retry strategy
     });
 
     // Add error handlers
     this.connection.on('error', (error) => {
-      logger.error({ error: error.message, stack: error.stack }, 'Redis connection error');
+      logger.error({ 
+        error: error.message, 
+        stack: error.stack,
+        host: config.redis.host,
+        port: config.redis.port
+      }, 'Redis connection error');
     });
 
     this.connection.on('connect', () => {
-      logger.info('Redis connection established');
+      logger.info({ host: config.redis.host, port: config.redis.port }, 'Redis connection established');
     });
 
     // Initialize queue

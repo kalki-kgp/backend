@@ -35,13 +35,32 @@ class Database {
     }
   }
 
-  async connect(): Promise<void> {
-    try {
-      await this.pool.connect();
-      logger.info('Database connected successfully');
-    } catch (error) {
-      logger.error({ error }, 'Failed to connect to database');
-      throw error;
+  async connect(retries = 5, delay = 2000): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await this.pool.connect();
+        logger.info('Database connected successfully');
+        return;
+      } catch (error) {
+        logger.warn(
+          { 
+            error: error instanceof Error ? error.message : String(error),
+            attempt: i + 1,
+            maxRetries: retries,
+            host: config.postgres.host,
+            port: config.postgres.port
+          },
+          'Failed to connect to database, retrying...'
+        );
+        
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 1.5; // Exponential backoff
+        } else {
+          logger.error({ error }, 'Failed to connect to database after all retries');
+          throw error;
+        }
+      }
     }
   }
 

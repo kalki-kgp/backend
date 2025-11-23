@@ -28,7 +28,17 @@ async function start() {
       },
     });
 
-    // Initialize database
+    // Log environment variables for debugging (without sensitive data)
+    logger.info({
+      postgresHost: config.postgres.host,
+      postgresPort: config.postgres.port,
+      postgresDb: config.postgres.database,
+      redisHost: config.redis.host,
+      redisPort: config.redis.port,
+      nodeEnv: config.server.nodeEnv,
+    }, 'Starting server with configuration');
+
+    // Initialize database with retry logic
     await database.connect();
     await database.initSchema();
 
