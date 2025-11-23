@@ -5,8 +5,29 @@ dotenv.config();
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = process.env[key] || defaultValue;
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // In production, fail fast if critical env vars are missing
+  if (!value && isProduction && (key.includes('HOST') || key.includes('PASSWORD'))) {
+    const envKeys = Object.keys(process.env).filter(k => 
+      k.includes('POSTGRES') || k.includes('REDIS') || k.includes('NODE') || k.includes('DATABASE')
+    ).sort();
+    console.error(`\n❌ CRITICAL: Missing environment variable: ${key}`);
+    console.error(`Environment: ${process.env.NODE_ENV || 'not set'}`);
+    console.error(`Available environment variables:`);
+    envKeys.forEach(k => {
+      const val = process.env[k];
+      // Show first 50 chars of value, or indicate if it's a password
+      const displayVal = k.includes('PASSWORD') 
+        ? '***' 
+        : (val && val.length > 50 ? val.substring(0, 50) + '...' : val);
+      console.error(`  ${k}=${displayVal}`);
+    });
+    console.error(`\nAll environment variables:`, Object.keys(process.env).sort().join(', '));
+    throw new Error(`Missing required environment variable: ${key}. Check Render dashboard Environment tab.`);
+  }
+  
   if (!value) {
-    // Log available env vars for debugging (without sensitive data)
     const envKeys = Object.keys(process.env).filter(k => 
       k.includes('POSTGRES') || k.includes('REDIS') || k.includes('NODE')
     );
@@ -33,16 +54,24 @@ export const config: AppConfig = {
     nodeEnv: getEnvVar('NODE_ENV', 'development'),
   },
   redis: {
-    host: getEnvVar('REDIS_HOST', 'localhost'),
+    // In production, don't default to localhost - fail if not set
+    host: process.env.NODE_ENV === 'production' 
+      ? getEnvVar('REDIS_HOST') 
+      : getEnvVar('REDIS_HOST', 'localhost'),
     port: getEnvNumber('REDIS_PORT', 6379),
     password: process.env.REDIS_PASSWORD || undefined,
   },
   postgres: {
-    host: getEnvVar('POSTGRES_HOST', 'localhost'),
+    // In production, don't default to localhost - fail if not set
+    host: process.env.NODE_ENV === 'production' 
+      ? getEnvVar('POSTGRES_HOST') 
+      : getEnvVar('POSTGRES_HOST', 'localhost'),
     port: getEnvNumber('POSTGRES_PORT', 5432),
     database: getEnvVar('POSTGRES_DB', 'order_execution'),
     user: getEnvVar('POSTGRES_USER', 'postgres'),
-    password: getEnvVar('POSTGRES_PASSWORD', 'postgres'),
+    password: process.env.NODE_ENV === 'production' 
+      ? getEnvVar('POSTGRES_PASSWORD') 
+      : getEnvVar('POSTGRES_PASSWORD', 'postgres'),
   },
   orderProcessing: {
     maxConcurrentOrders: getEnvNumber('MAX_CONCURRENT_ORDERS', 10),

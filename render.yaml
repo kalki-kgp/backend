@@ -19,11 +19,18 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
+    # Note: For Docker deployments, fromService may not work reliably
+    # You may need to manually set these in Render Dashboard → Environment tab
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: POSTGRES_DB
+        value: order_execution
+      - key: POSTGRES_USER
+        value: postgres
+      # These will be set automatically if fromService works, otherwise set manually:
       - key: POSTGRES_HOST
         fromService:
           type: pserv
@@ -34,10 +41,6 @@ services:
           type: pserv
           name: order-execution-db
           property: port
-      - key: POSTGRES_DB
-        value: order_execution
-      - key: POSTGRES_USER
-        value: postgres
       - key: POSTGRES_PASSWORD
         fromService:
           type: pserv
