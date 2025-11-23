@@ -1,19 +1,12 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (Managed PostgreSQL)
   - type: pserv
     name: order-execution-db
-    env: docker
     plan: free
-    dockerfilePath: ./Dockerfile.postgres
-    envVars:
-      - key: POSTGRES_DB
-        value: order_execution
-      - key: POSTGRES_USER
-        value: postgres
-      - key: POSTGRES_PASSWORD
-        generateValue: true
+    databaseName: order_execution
+    user: postgres
 
-  # Redis
+  # Redis (Managed Redis)
   - type: redis
     name: order-execution-redis
     plan: free

@@ -12,6 +12,12 @@ This backend service implements a production-ready order execution engine that:
 - 🔄 Implements exponential backoff retry logic
 - 📊 Maintains complete order history in PostgreSQL
 
+## 🌐 Live Demo
+
+**Deployed URL:** `https://your-app.onrender.com` (Update after deployment)
+
+**API Base URL:** `https://your-app.onrender.com/api`
+
 ## 📹 Demo Video
 
 **YouTube Demo:** [Watch the Order Execution Engine in action](https://youtube.com/your-demo-link)
@@ -421,25 +427,57 @@ CONFIRMED  →  Transaction successful (includes txHash)
 
 ## 🚢 Deployment
 
-### Deploy to Render (Free Tier)
+### Quick Deploy (Recommended: Render)
 
-1. **Create `render.yaml`** (included in repo)
-2. **Push to GitHub**
-3. **Connect to Render**:
+**Render** is recommended for free tier PostgreSQL and Redis support.
+
+1. **Push to GitHub**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
+
+2. **Deploy via Render Dashboard**
    - Go to [Render Dashboard](https://dashboard.render.com)
-   - New → Blueprint
-   - Connect your GitHub repo
-   - Render auto-deploys using `render.yaml`
+   - Click "New +" → "Blueprint"
+   - Connect your GitHub repository
+   - Render auto-detects `render.yaml` and deploys everything
 
-4. **Environment Variables**: Set in Render dashboard
-   - `DATABASE_URL` (PostgreSQL)
-   - `REDIS_URL` (Redis)
+3. **Get Your URL**
+   - Render provides: `https://your-app.onrender.com`
+   - Update the URL in this README after deployment
 
-### Alternative Deployments
+### Detailed Deployment Guide
 
-- **Railway**: `railway up`
-- **Fly.io**: `fly deploy`
-- **Heroku**: `git push heroku main`
+For detailed instructions on deploying to multiple platforms, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**
+
+**Supported Platforms:**
+- ✅ **Render** (Recommended - Free tier available)
+- ✅ **Railway** (Easy deployment, $5/month credit)
+- ✅ **Fly.io** (Global edge deployment)
+- ✅ **Heroku** (Classic platform)
+
+### Environment Variables
+
+All platforms require these environment variables (auto-set by managed services):
+
+**Required:**
+- `NODE_ENV=production`
+- `PORT=3000`
+- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `REDIS_HOST`, `REDIS_PORT`
+
+**Optional (with defaults):**
+- `MAX_CONCURRENT_ORDERS=10`
+- `ORDER_RATE_LIMIT=100`
+- `RETRY_MAX_ATTEMPTS=3`
+- `RETRY_BACKOFF_MS=1000`
+- `MOCK_MODE=true`
+- `MOCK_DELAY_MIN_MS=2000`
+- `MOCK_DELAY_MAX_MS=3000`
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for platform-specific setup instructions.
 
 ## 📈 Performance Metrics
 
