@@ -48,30 +48,57 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
   return value ? value.toLowerCase() === 'true' : defaultValue;
 };
 
+// Helper to get env var with production validation
+const getRequiredEnvVar = (key: string, defaultValue?: string): string => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  // Also check if we're likely in Render (has PORT set by Render, or RENDER env vars)
+  const isRender = !!process.env.RENDER || (!!process.env.PORT && !process.env.NODE_ENV);
+  const value = process.env[key] || defaultValue;
+  
+  // In production or Render environment, fail immediately if critical vars are missing or defaulting to localhost
+  if (isProduction || isRender) {
+    if (!value || value === 'localhost' || value === '127.0.0.1' || value.includes('::1')) {
+      if (key.includes('HOST') || key.includes('PASSWORD')) {
+        const allEnvVars = Object.keys(process.env).sort();
+        console.error(`\n❌ CRITICAL ERROR: ${key} is missing or set to localhost!`);
+        console.error(`Current value: ${value || 'undefined'}`);
+        console.error(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+        console.error(`RENDER: ${process.env.RENDER || 'not set'}`);
+        console.error(`PORT: ${process.env.PORT || 'not set'}`);
+        console.error(`\nAll environment variables:`);
+        allEnvVars.forEach(k => {
+          const val = k.includes('PASSWORD') ? '***' : process.env[k];
+          console.error(`  ${k}=${val}`);
+        });
+        throw new Error(
+          `❌ ${key} must be set in Render environment. ` +
+          `Current value: ${value || 'undefined'} (localhost). ` +
+          `Go to Render Dashboard → Web Service → Environment tab → Add ${key} ` +
+          `with value from PostgreSQL/Redis service Info tab.`
+        );
+      }
+    }
+  }
+  
+  return value || '';
+};
+
 export const config: AppConfig = {
   server: {
     port: getEnvNumber('PORT', 3000),
     nodeEnv: getEnvVar('NODE_ENV', 'development'),
   },
   redis: {
-    // In production, don't default to localhost - fail if not set
-    host: process.env.NODE_ENV === 'production' 
-      ? getEnvVar('REDIS_HOST') 
-      : getEnvVar('REDIS_HOST', 'localhost'),
+    host: getRequiredEnvVar('REDIS_HOST', process.env.NODE_ENV === 'production' ? undefined : 'localhost'),
     port: getEnvNumber('REDIS_PORT', 6379),
     password: process.env.REDIS_PASSWORD || undefined,
   },
   postgres: {
-    // In production, don't default to localhost - fail if not set
-    host: process.env.NODE_ENV === 'production' 
-      ? getEnvVar('POSTGRES_HOST') 
-      : getEnvVar('POSTGRES_HOST', 'localhost'),
+    host: getRequiredEnvVar('POSTGRES_HOST', process.env.NODE_ENV === 'production' ? undefined : 'localhost'),
     port: getEnvNumber('POSTGRES_PORT', 5432),
     database: getEnvVar('POSTGRES_DB', 'order_execution'),
     user: getEnvVar('POSTGRES_USER', 'postgres'),
-    password: process.env.NODE_ENV === 'production' 
-      ? getEnvVar('POSTGRES_PASSWORD') 
-      : getEnvVar('POSTGRES_PASSWORD', 'postgres'),
+    password: getRequiredEnvVar('POSTGRES_PASSWORD', process.env.NODE_ENV === 'production' ? undefined : 'postgres'),
   },
   orderProcessing: {
     maxConcurrentOrders: getEnvNumber('MAX_CONCURRENT_ORDERS', 10),
