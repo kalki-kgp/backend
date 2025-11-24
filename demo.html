@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Execution Engine - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            line-height: 1.5;
+        }
+        .header {
+            border-bottom: 1px solid #e5e5e5;
+            padding: 20px 40px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #000000;
+            margin-bottom: 4px;
+        }
+        .header p {
+            font-size: 14px;
+            color: #666666;
+        }
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: #ffffff;
+        }
+        .panel h2 {
+            font-size: 18px;
+            font-weight: 500;
+            color: #000000;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #000000;
+            font-size: 14px;
+            font-weight: 400;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d1d1;
+            border-radius: 0;
+            font-size: 14px;
+            background: #ffffff;
+            color: #000000;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #000000;
+            transition: border-color 0.15s ease;
+        }
+        .btn {
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 14px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            position: relative;
+            transition: opacity 0.2s ease;
+        }
+        .btn:active {
+            opacity: 0.8;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-loading {
+            pointer-events: none;
+        }
+        .btn-loader {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .btn-loading .btn-loader {
+            display: inline-block;
+        }
+        .btn-loading .btn-text {
+            opacity: 0.7;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn-secondary {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #d1d1d1;
+        }
+        .orders-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .order-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            padding: 20px;
+            margin-bottom: 16px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .order-id {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666666;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            background: #f5f5f5;
+            color: #000000;
+        }
+        .status-pending { background: #f5f5f5; color: #000000; }
+        .status-routing { background: #f0f0f0; color: #000000; }
+        .status-building { background: #f0f0f0; color: #000000; }
+        .status-submitted { background: #f0f0f0; color: #000000; }
+        .status-confirmed { background: #f0f0f0; color: #000000; }
+        .status-failed { background: #f5f5f5; color: #cc0000; }
+        .order-details {
+            font-size: 14px;
+            color: #666666;
+            margin-top: 8px;
+        }
+        .order-details div {
+            margin-bottom: 6px;
+        }
+        .order-details strong {
+            color: #000000;
+            font-weight: 500;
+        }
+        .logs {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .log-entry {
+            margin-bottom: 8px;
+            color: #666666;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .log-info { color: #666666; }
+        .log-success { color: #000000; }
+        .log-error { color: #cc0000; }
+        .log-warning { color: #666666; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 500;
+            color: #000000;
+            transition: transform 0.2s ease;
+        }
+        .stat-value.updating {
+            transform: scale(1.1);
+        }
+        .stat-label {
+            color: #666666;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .empty-state {
+            text-align: center;
+            color: #666666;
+            padding: 60px 20px;
+            font-size: 14px;
+        }
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Order Execution Engine</h1>
+        <p>DEX Order Execution with Real-time WebSocket Updates</p>
+    </div>
+    <div class="content">
+        <div class="panel">
+            <h2>Create Order</h2>
+            <div class="form-group">
+                <label for="apiUrl">API Base URL</label>
+                <input type="text" id="apiUrl" value="https://eterna-labs-backend.kalkikgp.tech" placeholder="https://your-api.com">
+            </div>
+            <div class="form-group">
+                <label for="tokenIn">Token In</label>
+                <input type="text" id="tokenIn" value="SOL" placeholder="SOL">
+            </div>
+            <div class="form-group">
+                <label for="tokenOut">Token Out</label>
+                <input type="text" id="tokenOut" value="USDC" placeholder="USDC">
+            </div>
+            <div class="form-group">
+                <label for="amountIn">Amount In</label>
+                <input type="number" id="amountIn" value="100" placeholder="100">
+            </div>
+            <div class="form-group">
+                <label for="slippage">Slippage (%)</label>
+                <input type="number" id="slippage" value="1" step="0.1" min="0" max="50" placeholder="1">
+            </div>
+            <button class="btn" id="createOrderBtn" onclick="createOrder()">
+                <span class="btn-loader"></span>
+                <span class="btn-text">Create Order</span>
+            </button>
+            <button class="btn btn-secondary" onclick="createMultipleOrders()">Create 5 Orders Simultaneously</button>
+            <button class="btn btn-secondary" onclick="clearOrders()">Clear Orders</button>
+        </div>
+        <div class="panel full-width">
+            <h2>Active Orders & Status Updates</h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalOrders">0</div>
+                    <div class="stat-label">Total Orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="pendingOrders">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="confirmedOrders">0</div>
+                    <div class="stat-label">Confirmed</div>
+                </div>
+            </div>
+            <div class="orders-list" id="ordersList">
+                <p class="empty-state">No orders yet. Create an order to see real-time status updates.</p>
+            </div>
+        </div>
+        <div class="panel full-width">
+            <h2>Activity Logs</h2>
+            <div class="logs" id="logs">
+                <div class="log-entry log-info">Ready to create orders. WebSocket connections will be established automatically.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const orders = new Map();
+        let orderCounter = 0;
+
+        function addLog(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logs.insertBefore(entry, logs.firstChild);
+            if (logs.children.length > 100) {
+                logs.removeChild(logs.lastChild);
+            }
+        }
+
+        function updateStats() {
+            const total = orders.size;
+            const pending = Array.from(orders.values()).filter(o => 
+                ['pending', 'routing', 'building', 'submitted'].includes(o.status)
+            ).length;
+            const confirmed = Array.from(orders.values()).filter(o => 
+                o.status === 'confirmed'
+            ).length;
+            
+            updateStatValue('totalOrders', total);
+            updateStatValue('pendingOrders', pending);
+            updateStatValue('confirmedOrders', confirmed);
+        }
+
+        function updateStatValue(id, value) {
+            const element = document.getElementById(id);
+            const currentValue = parseInt(element.textContent) || 0;
+            if (currentValue !== value) {
+                element.classList.add('updating');
+                element.textContent = value;
+                setTimeout(() => {
+                    element.classList.remove('updating');
+                }, 200);
+            }
+        }
+
+        function renderOrder(order) {
+            const ordersList = document.getElementById('ordersList');
+            let orderDiv = document.getElementById(`order-${order.orderId}`);
+            
+            if (!orderDiv) {
+                orderDiv = document.createElement('div');
+                orderDiv.id = `order-${order.orderId}`;
+                orderDiv.className = 'order-card';
+                ordersList.insertBefore(orderDiv, ordersList.firstChild);
+                if (ordersList.querySelector('.empty-state')) {
+                    ordersList.removeChild(ordersList.querySelector('.empty-state'));
+                }
+            }
+
+            const statusClass = `status-${order.status.toLowerCase()}`;
+            orderDiv.innerHTML = `
+                <div class="order-header">
+                    <div class="order-id">Order ID: ${order.orderId.substring(0, 8)}...</div>
+                    <span class="status-badge ${statusClass}">${order.status}</span>
+                </div>
+                <div class="order-details">
+                    <div><strong>Pair:</strong> ${order.tokenIn} → ${order.tokenOut}</div>
+                    <div><strong>Amount:</strong> ${order.amountIn} ${order.tokenIn}</div>
+                    ${order.selectedDex ? `<div><strong>Selected DEX:</strong> ${order.selectedDex.toUpperCase()}</div>` : ''}
+                    ${order.executedPrice ? `<div><strong>Executed Price:</strong> ${order.executedPrice.toFixed(4)}</div>` : ''}
+                    ${order.txHash ? `<div><strong>TX Hash:</strong> ${order.txHash.substring(0, 16)}...</div>` : ''}
+                    ${order.error ? `<div style="color: #cc0000;"><strong>Error:</strong> ${order.error}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function createOrder() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const tokenIn = document.getElementById('tokenIn').value.trim();
+            const tokenOut = document.getElementById('tokenOut').value.trim();
+            const amountIn = parseFloat(document.getElementById('amountIn').value);
+            const slippage = parseFloat(document.getElementById('slippage').value) / 100;
+
+            if (!apiUrl || !tokenIn || !tokenOut || !amountIn) {
+                addLog('Please fill in all fields', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('createOrderBtn');
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+
+            try {
+                addLog(`Creating order: ${amountIn} ${tokenIn} → ${tokenOut}`, 'info');
+                
+                const response = await fetch(`${apiUrl}/api/orders/execute`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: 'market',
+                        tokenIn,
+                        tokenOut,
+                        amountIn,
+                        slippage,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to create order');
+                }
+
+                const data = await response.json();
+                const orderId = data.orderId;
+                
+                addLog(`Order created: ${orderId.substring(0, 8)}...`, 'success');
+                
+                // Create order object
+                const order = {
+                    orderId,
+                    tokenIn,
+                    tokenOut,
+                    amountIn,
+                    slippage,
+                    status: 'pending',
+                };
+                orders.set(orderId, order);
+                renderOrder(order);
+                updateStats();
+
+                // Connect WebSocket for status updates
+                connectWebSocket(apiUrl, orderId, order);
+                
+            } catch (error) {
+                addLog(`Error: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+            }
+        }
+
+        function connectWebSocket(apiUrl, orderId, order) {
+            // Convert http/https to ws/wss
+            const wsUrl = apiUrl.replace(/^http/, 'ws') + `/api/orders/execute?orderId=${orderId}`;
+            
+            addLog(`Connecting WebSocket for order ${orderId.substring(0, 8)}...`, 'info');
+            
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                addLog(`WebSocket connected for order ${orderId.substring(0, 8)}...`, 'success');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const update = JSON.parse(event.data);
+                    addLog(`Status update: ${update.status} for order ${orderId.substring(0, 8)}...`, 'info');
+                    
+                    // Update order
+                    const currentOrder = orders.get(orderId);
+                    if (currentOrder) {
+                        currentOrder.status = update.status;
+                        if (update.data) {
+                            if (update.data.selectedDex) currentOrder.selectedDex = update.data.selectedDex;
+                            if (update.data.executedPrice) currentOrder.executedPrice = update.data.executedPrice;
+                            if (update.data.txHash) currentOrder.txHash = update.data.txHash;
+                            if (update.data.quotes) {
+                                addLog(`DEX Quotes received: ${update.data.quotes.map(q => q.dex).join(', ')}`, 'info');
+                            }
+                        }
+                        if (update.error) currentOrder.error = update.error;
+                        
+                        renderOrder(currentOrder);
+                        updateStats();
+                    }
+                } catch (error) {
+                    addLog(`Error parsing WebSocket message: ${error.message}`, 'error');
+                }
+            };
+
+            ws.onerror = (error) => {
+                addLog(`WebSocket error for order ${orderId.substring(0, 8)}...`, 'error');
+            };
+
+            ws.onclose = () => {
+                addLog(`WebSocket closed for order ${orderId.substring(0, 8)}...`, 'warning');
+            };
+        }
+
+        async function createMultipleOrders() {
+            addLog('Creating 5 orders simultaneously...', 'info');
+            const amounts = [50, 75, 100, 150, 200];
+            const pairs = [
+                { in: 'SOL', out: 'USDC' },
+                { in: 'USDC', out: 'SOL' },
+                { in: 'SOL', out: 'USDC' },
+                { in: 'USDC', out: 'SOL' },
+                { in: 'SOL', out: 'USDC' },
+            ];
+
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    document.getElementById('tokenIn').value = pairs[i].in;
+                    document.getElementById('tokenOut').value = pairs[i].out;
+                    document.getElementById('amountIn').value = amounts[i];
+                    createOrder();
+                }, i * 500); // Stagger by 500ms
+            }
+        }
+
+        function clearOrders() {
+            orders.clear();
+            document.getElementById('ordersList').innerHTML = 
+                '<p class="empty-state">No orders yet. Create an order to see real-time status updates.</p>';
+            updateStats();
+            addLog('Orders cleared', 'info');
+        }
+
+        // Initialize
+        addLog('Demo page loaded. Ready to create orders!', 'success');
+    </script>
+</body>
+</html>
