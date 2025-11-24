@@ -8,9 +8,11 @@ A high-performance DEX order execution engine with intelligent routing between R
 
 **API Base URL:** `https://eterna-labs-backend.kalkikgp.tech/api`
 
+**Note:** This is running on Render's free tier, so if it's been idle for a while, the first request might take 30-60 seconds to wake up. After that it should be pretty quick until it goes to sleep again.
+
 ## 📹 Demo Video
 
-**YouTube Demo:** [Watch the Order Execution Engine in action](https://youtube.com/your-demo-link)
+**YouTube Demo:** [Watch the Order Execution Engine in action](https://youtu.be/buXtjDKSvvM)
 
 **Testing:** A `demo.html` file is included in this repository for testing the backend API interactively with real-time WebSocket updates.
 
